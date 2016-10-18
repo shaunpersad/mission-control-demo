@@ -82,6 +82,8 @@
     var segmentIndex = 0;
     var networkIndex = 0;
 
+    var targetVector = new THREE.Vector3(0, 0, 0);
+
     // load a resource
     loader.load(
             'img/star.png',
@@ -136,13 +138,6 @@
                 network.children.forEach(function(property, propertyIndex) {
 
                     var r = getMappedNumberForRange(property.metrics.audience.total, min, max, 2, 5);
-
-//                    var geometry = new THREE.SphereGeometry( r, 32, 32 );
-//                    var material = new THREE.MeshBasicMaterial( {
-//                        color: 0xffff00,
-//                        transparent: true
-//                    } );
-//                    var star = new THREE.Mesh( geometry, material );
 
                     var angle = getRandomArbitrary(segmentBeginning, segmentEnd);
                     var radius = (Math.random() * universeRadius + 1) + hole;
@@ -257,6 +252,8 @@
     }
 
     var controls = new THREE.TrackballControls( camera );
+    var goIdleTimer;
+    var idleTimer;
 
     controls.rotateSpeed = 1.0;
     controls.zoomSpeed = 1.2;
@@ -270,12 +267,27 @@
 
     controls.keys = [ 65, 83, 68 ];
 
-    controls.addEventListener( 'change', _render );
+    controls.addEventListener( 'change', function() {
+        if (idleTimer) {
+            clearTimeout(idleTimer);
+        }
+        _render();
+        setIdle();
+    });
 
     var socket = io.connect();
     socket.on('navigate-to', function (breadcrumbs) {
 
-        console.log('received', breadcrumbs);
+        if (idleTimer) {
+            clearTimeout(idleTimer);
+        }
+
+        navigateTo(breadcrumbs);
+        setIdle();
+    });
+
+    function navigateTo(breadcrumbs) {
+
         var text = ['Turner'];
         var target = universe;
         var data = universeData;
@@ -295,12 +307,12 @@
         });
         $('#breadcrumbs').html(text.join(' > '));
 
-        var vector = target;
+        targetVector = target;
         if (target.geometry) {
-            vector = target.geometry.boundingSphere.center;
+            targetVector = target.geometry.boundingSphere.center;
         } else if (target.children) {
             var box = new THREE.Box3().setFromObject(target);
-            vector = box.getCenter();
+            targetVector = box.getCenter();
         }
 
         TWEEN.removeAll();    // remove previous tweens if needed
@@ -310,22 +322,66 @@
             y: camera.position.y,
             z: camera.position.z
         })
-                .to({ x: vector.x, y: vector.y, z: vector.z}, 1000)
+                .to({ x: targetVector.x, y: targetVector.y, z: targetVector.z}, 1000)
                 .onUpdate(function() {
                     camera.position.x = this.x;
                 })
                 .onComplete(function () {
-                    camera.lookAt(vector);
+                    camera.lookAt(targetVector);
                 })
                 .start();
 
 
         var tween2 = new TWEEN.Tween(controls.target)
-                .to({ x: vector.x, y: vector.y, z: vector.z}, 1000)
+                .to({ x: targetVector.x, y: targetVector.y, z: targetVector.z}, 1000)
                 .start();
+    }
 
+    function clearIdle() {
+        if (goIdleTimer) {
+            clearTimeout(goIdleTimer);
+        }
+        if (idleTimer) {
+            clearTimeout(idleTimer);
+        }
+    }
 
-    });
+    function setIdle() {
+
+        goIdleTimer = setTimeout(function() {
+            idle();
+        }, 60 * 1000);
+    }
+
+    function idle() {
+
+        if (idleTimer) {
+            clearTimeout(idleTimer);
+        }
+
+        idleTimer = setTimeout(function() {
+
+            var depth = getRandomInt(1, 4);
+            var level = universeData;
+            var breadcrumbs = [];
+
+            for (var x = 0; x < depth; x++) {
+                var index = getRandomInt(0, level.children.length);
+
+                level = level.children[index];
+                breadcrumbs.push(level.slug);
+            }
+            navigateTo(breadcrumbs);
+            idle();
+
+        }, 10 * 1000);
+    }
+
+    function getRandomInt(min, max) {
+        min = Math.ceil(min);
+        max = Math.floor(max);
+        return Math.floor(Math.random() * (max - min) + min);
+    }
 
 
 </script>
