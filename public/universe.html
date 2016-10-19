@@ -81,9 +81,6 @@
     var stars = [];
     var segmentIndex = 0;
     var networkIndex = 0;
-
-    var topCameraPosition;
-
     var targetVector = new THREE.Vector3(0, 0, 0);
 
     // load a resource
@@ -189,11 +186,6 @@
         scene.add(universe);
         var box = new THREE.Box3().setFromObject(universe);
         var sphere = box.getBoundingSphere();
-        topCameraPosition = {
-            x: 0,
-            y: sphere.radius,
-            z: 0
-        };
         camera.position.x = 0;
         camera.position.y = 150;
         camera.position.z = sphere.radius - 100;
@@ -210,6 +202,7 @@
 
         var maxStarFieldSpeed = universeSpeed * (starFieldPlane.children.length + 1);
         universe.rotation.y+= maxStarFieldSpeed;
+        camera.lookAt(targetVector);
 
         for (var x = 0; x < starFieldPlane.children.length; x++) {
 
@@ -290,25 +283,59 @@
             clearTimeout(idleTimer);
         }
 
-        navigateTo(breadcrumbs);
-        setIdle();
+        requestAnimationFrame( function() {
+            navigateTo(breadcrumbs);
+            setIdle();
+        } );
     });
+
+    var DEPTH_UNIVERSE = 0;
+    var DEPTH_CONSTELLATIONS = 1;
+    var DEPTH_CONSTELLATION = 2;
+    var DEPTH_STAR = 3;
 
     function navigateTo(breadcrumbs) {
 
         var text = ['Turner'];
         var target = universe;
         var data = universeData;
+        var depth = 0;
+        var maxDepth = breadcrumbs.length;
+
+        universe.children.forEach(function(constellations) {
+
+            constellations.children.forEach(function(constellation) {
+
+                constellation.material.color.setHex(0xFFFFFF);
+            });
+        });
+
         breadcrumbs.forEach(function(breadcrumb) {
+            depth++;
 
             data.children.forEach(function(child, index) {
+
                 if (child.slug === breadcrumb) {
+
                     data = child;
+
                     if (target.geometry) {
                         target = target.geometry.vertices[index];
                     } else {
                         target = target.children[index];
                     }
+
+                    if (depth === maxDepth) {
+                        if (depth === DEPTH_CONSTELLATIONS) {
+                            target.children.forEach(function(c) {
+                                c.material.color.setHex(0xff0000);
+                            });
+
+                        } else if (depth === DEPTH_CONSTELLATION) {
+                            target.material.color.setHex(0xff0000);
+                        }
+                    }
+
                     text.push(data.name);
                 }
             });
@@ -334,21 +361,16 @@
             y: camera.position.y,
             z: camera.position.z
         })
-                .to({ x: targetVector.x, y: 150, z: targetVector.z - distance}, 500)
+                .to({ x: targetVector.x, z: targetVector.z + distance}, 500)
                 .onUpdate(function() {
                     camera.position.x = this.x;
-                    camera.position.y = this.y;
                     camera.position.z = this.z;
-                })
-                .onComplete(function () {
-                    //camera.lookAt(targetVector);
                 })
                 .start();
 
-
-//        var tween2 = new TWEEN.Tween(controls.target)
-//                .to({ x: targetVector.x, y: targetVector.y, z: targetVector.z}, 1000)
-//                .start();
+        var tween2 = new TWEEN.Tween(controls.target)
+                .to({ x: targetVector.x, y: targetVector.y, z: targetVector.z}, 1000)
+                .start();
     }
 
     function clearIdle() {
