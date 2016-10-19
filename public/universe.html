@@ -63,7 +63,7 @@
     var universeSpeed = 0.0001;
     var hole = 100;
 
-    var starCount = 2000;
+    var starCount = 3000;
     var numStarFields = 5;
     var starCountPerField = Math.round(starCount / numStarFields);
 
@@ -76,11 +76,13 @@
 
     var starFieldIncrement = universeRadius / numStarFields;
     var starFieldBeginning = 0;
-    var starFieldEnd = 50;
+    var starFieldEnd = 100;
 
     var stars = [];
     var segmentIndex = 0;
     var networkIndex = 0;
+
+    var topCameraPosition;
 
     var targetVector = new THREE.Vector3(0, 0, 0);
 
@@ -147,7 +149,7 @@
 
                     var star = new THREE.Vector3(x, y, z);
 
-                    star.velocity = getRandomArbitrary(-universeSpeed / 2, universeSpeed / 2);
+                    star.velocity = getRandomArbitrary(-0.01, 0.01);
 
                     constellation.vertices.push(star);
                     stars.push(star);
@@ -171,11 +173,11 @@
                 var angle = getRandomArbitrary(0, Math.PI * 2);
                 var radius = getRandomArbitrary(starFieldBeginning, starFieldEnd) + hole;
                 var x = Math.cos(angle) * radius;
-                var y = getRandomArbitrary(-universeHeight / 3, universeHeight / 3);
+                var y = getRandomArbitrary(-universeHeight, universeHeight);
                 var z = Math.sin(angle) * radius;
 
                 var star = new THREE.Vector3(x, y, z);
-                star.velocity = getRandomArbitrary(-universeSpeed / 2, universeSpeed / 2);
+                star.velocity = getRandomArbitrary(-0.1, 0.1);
                 starField.vertices.push(star);
             }
 
@@ -185,10 +187,16 @@
 
         scene.add(starFieldPlane);
         scene.add(universe);
-
-        camera.position.x = 50;
-        camera.position.y = 100;
-        camera.position.z = 350;
+        var box = new THREE.Box3().setFromObject(universe);
+        var sphere = box.getBoundingSphere();
+        topCameraPosition = {
+            x: 0,
+            y: sphere.radius,
+            z: 0
+        };
+        camera.position.x = 0;
+        camera.position.y = 150;
+        camera.position.z = sphere.radius - 100;
         //scene.rotation.y = 45;
         //scene.rotation.z = 5;
         camera.lookAt(universe.position);
@@ -207,10 +215,10 @@
 
             var starField = starFieldPlane.children[x];
 
-            starField.rotation.y+= (maxStarFieldSpeed-= universeSpeed);
+            starField.rotation.y+= (maxStarFieldSpeed * 2) / (x + 1);
             starField.geometry.vertices.forEach(function(star) {
 
-                if (star.y >= universeHeight / 2 || star.y <= -universeHeight / 2) {
+                if (star.y >= (universeHeight * 2) || star.y <= -(universeHeight * 2)) {
                     star.velocity = star.velocity * -1;
                 }
                 star.y+=star.velocity;
@@ -308,33 +316,39 @@
         $('#breadcrumbs').html(text.join(' > '));
 
         targetVector = target;
+        var distance = 0;
         if (target.geometry) {
             targetVector = target.geometry.boundingSphere.center;
+            distance = target.geometry.boundingSphere.radius;
         } else if (target.children) {
             var box = new THREE.Box3().setFromObject(target);
-            targetVector = box.getCenter();
+            var sphere = box.getBoundingSphere();
+            targetVector = sphere.center;
+            distance = sphere.radius;
         }
 
         TWEEN.removeAll();    // remove previous tweens if needed
 
-        var tween = new TWEEN.Tween({
+        new TWEEN.Tween({
             x: camera.position.x,
             y: camera.position.y,
             z: camera.position.z
         })
-                .to({ x: targetVector.x, y: targetVector.y, z: targetVector.z}, 1000)
+                .to({ x: targetVector.x, y: 150, z: targetVector.z - distance}, 500)
                 .onUpdate(function() {
                     camera.position.x = this.x;
+                    camera.position.y = this.y;
+                    camera.position.z = this.z;
                 })
                 .onComplete(function () {
-                    camera.lookAt(targetVector);
+                    //camera.lookAt(targetVector);
                 })
                 .start();
 
 
-        var tween2 = new TWEEN.Tween(controls.target)
-                .to({ x: targetVector.x, y: targetVector.y, z: targetVector.z}, 1000)
-                .start();
+//        var tween2 = new TWEEN.Tween(controls.target)
+//                .to({ x: targetVector.x, y: targetVector.y, z: targetVector.z}, 1000)
+//                .start();
     }
 
     function clearIdle() {
