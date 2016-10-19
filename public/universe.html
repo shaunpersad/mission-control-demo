@@ -1,10 +1,12 @@
 <html>
 <head>
     <title>listen, there's a hell of a good universe next door; lets go.</title>
+    <link rel="stylesheet" type="text/css" href="//fonts.googleapis.com/css?family=Aldrich" />
     <style>
         html,body {
             margin: 0;
             padding: 0;
+            font-family: Aldrich;
         }
         #container,canvas {
             width: 100%;
@@ -16,9 +18,10 @@
         }
         #breadcrumbs {
             position: absolute;
-            top: 0;
-            left: 0;
+            top: 10px;
+            left: 10px;
             color: white;
+            font-size: 25px;
         }
     </style>
 </head>
@@ -28,7 +31,6 @@
 </div>
 <div id="container"></div>
 
-
 <script src="js/jquery.js"></script>
 <script src="js/three.min.js"></script>
 <script src="js/Tween.js"></script>
@@ -36,7 +38,7 @@
 <script src="js/data.js"></script>
 <script src="/socket.io/socket.io.js"></script>
 <script>
-
+    console.warn = function() {};
     // Returns a random number between min (inclusive) and max (exclusive)
     function getRandomArbitrary(min, max) {
         return Math.random() * (max - min) + min;
@@ -82,15 +84,19 @@
     var segmentIndex = 0;
     var networkIndex = 0;
     var targetVector = new THREE.Vector3(0, 0, 0);
+    var lockOnTarget = universe;
+    var starIndex;
+    var tweening = false;
+    var selectedStar;
 
     // load a resource
     loader.load(
-            'img/star.png',
+            'img/star-big.png',
             function (starMaterialTexture) {
 
                 var starMaterial = new THREE.PointsMaterial({
                     color: 0xFFFFFF,
-                    size: 5,
+                    size: 3,
                     map: starMaterialTexture,
                     transparent: true,
                     depthTest: false
@@ -116,10 +122,36 @@
 
     function init(starMaterial, starBigMaterial) {
 
+        var geometry = new THREE.SphereGeometry( 25, 32, 32 );
+        var material = new THREE.MeshBasicMaterial( {color: 0xffff00} );
+        selectedStar = new THREE.Mesh( geometry, material );
+
+        selectedStar.visible = false;
+        scene.add(selectedStar);
+
         universeData.children.forEach(function(segment, segmentIndex) {
+
 
             segmentBeginning+= (segmentIncrement * segmentIndex);
             segmentEnd+= (segmentIncrement * segmentIndex);
+
+            var material = new THREE.LineDashedMaterial({
+                color: 0xffffff,
+                gapSize: 30,
+                dashSize: 30
+            });
+
+            var geometry = new THREE.Geometry();
+
+
+            geometry.vertices.push(
+                    new THREE.Vector3( Math.cos(segmentBeginning) * hole, 0, Math.sin(segmentBeginning) * hole ),
+                    new THREE.Vector3( Math.cos(segmentBeginning) * universeRadius, 0, Math.sin(segmentBeginning) * universeRadius )
+            );
+            geometry.computeLineDistances();
+
+            var line = new THREE.Line( geometry, material );
+            scene.add(line);
 
             var constellations =  new THREE.Object3D();
 
@@ -174,13 +206,15 @@
                 var z = Math.sin(angle) * radius;
 
                 var star = new THREE.Vector3(x, y, z);
-                star.velocity = getRandomArbitrary(-0.1, 0.1);
+                star.velocity = getRandomArbitrary(-0.015, 0.015);
                 starField.vertices.push(star);
             }
 
             var universeStarField = new THREE.Points(starField, starMaterial);
             starFieldPlane.add(universeStarField);
         }
+
+
 
         scene.add(starFieldPlane);
         scene.add(universe);
@@ -196,12 +230,28 @@
         render();
     }
 
-
     var render = function (time) {
         requestAnimationFrame( render );
 
         var maxStarFieldSpeed = universeSpeed * (starFieldPlane.children.length + 1);
-        universe.rotation.y+= maxStarFieldSpeed;
+        scene.rotation.y+= maxStarFieldSpeed;
+
+        if (!tweening) {
+
+            var box = new THREE.Box3().setFromObject(lockOnTarget);
+            var sphere = box.getBoundingSphere();
+            targetVector = sphere.center;
+            var distance = sphere.radius * 0.7;
+            if (lockOnTarget.type == 'Mesh' && lockOnTarget.geometry.type == 'SphereGeometry') {
+                distance = sphere.radius + 50;
+            }
+
+            camera.position.x = targetVector.x;
+            camera.position.y = 150 / (_breadcrumbs.length + 1);
+            camera.position.z = targetVector.z + distance;
+            //controls.target = targetVector;
+        }
+
         camera.lookAt(targetVector);
 
         for (var x = 0; x < starFieldPlane.children.length; x++) {
@@ -242,7 +292,7 @@
             }
         }
 
-        controls.update();
+        //controls.update();
         TWEEN.update(time);
         _render();
     };
@@ -252,29 +302,30 @@
 
     }
 
-    var controls = new THREE.TrackballControls( camera );
+    //var controls = new THREE.TrackballControls( camera );
     var goIdleTimer;
     var idleTimer;
+    var _breadcrumbs = [];
 
-    controls.rotateSpeed = 1.0;
-    controls.zoomSpeed = 1.2;
-    controls.panSpeed = 0.8;
-
-    controls.noZoom = false;
-    controls.noPan = false;
-
-    controls.staticMoving = true;
-    controls.dynamicDampingFactor = 0.3;
-
-    controls.keys = [ 65, 83, 68 ];
-
-    controls.addEventListener( 'change', function() {
-        if (idleTimer) {
-            clearTimeout(idleTimer);
-        }
-        _render();
-        setIdle();
-    });
+//    controls.rotateSpeed = 1.0;
+//    controls.zoomSpeed = 1.2;
+//    controls.panSpeed = 0.8;
+//
+//    controls.noZoom = false;
+//    controls.noPan = false;
+//
+//    controls.staticMoving = true;
+//    controls.dynamicDampingFactor = 0.3;
+//
+//    controls.keys = [ 65, 83, 68 ];
+//
+//    controls.addEventListener( 'change', function() {
+//        if (idleTimer) {
+//            clearTimeout(idleTimer);
+//        }
+//        _render();
+//        setIdle();
+//    });
 
     var socket = io.connect();
     socket.on('navigate-to', function (breadcrumbs) {
@@ -296,8 +347,13 @@
 
     function navigateTo(breadcrumbs) {
 
+        selectedStar.visible = false;
+        _breadcrumbs = breadcrumbs;
+
+        lockOnTarget = universe;
+        starIndex = undefined;
+
         var text = ['Turner'];
-        var target = universe;
         var data = universeData;
         var depth = 0;
         var maxDepth = breadcrumbs.length;
@@ -311,66 +367,85 @@
         });
 
         breadcrumbs.forEach(function(breadcrumb) {
+
             depth++;
 
-            data.children.forEach(function(child, index) {
+            for(var x = 0; x < data.children.length; x++) {
+
+                var child = data.children[x];
 
                 if (child.slug === breadcrumb) {
 
                     data = child;
 
-                    if (target.geometry) {
-                        target = target.geometry.vertices[index];
+                    if (lockOnTarget.geometry) {
+                        targetVector = lockOnTarget.geometry.vertices[x];
+                        selectedStar.position.x = targetVector.x;
+                        selectedStar.position.y = targetVector.y;
+                        selectedStar.position.z = targetVector.z;
+                        selectedStar.visible = true;
+                        lockOnTarget = selectedStar;
                     } else {
-                        target = target.children[index];
+                        lockOnTarget = lockOnTarget.children[x];
                     }
 
                     if (depth === maxDepth) {
+
                         if (depth === DEPTH_CONSTELLATIONS) {
-                            target.children.forEach(function(c) {
+
+                            lockOnTarget.children.forEach(function(c) {
+
                                 c.material.color.setHex(0xff0000);
                             });
 
-                        } else if (depth === DEPTH_CONSTELLATION) {
-                            target.material.color.setHex(0xff0000);
+                        } else if (depth === DEPTH_CONSTELLATION || depth === DEPTH_STAR) {
+
+                            lockOnTarget.material.color.setHex(0xff0000);
                         }
                     }
 
                     text.push(data.name);
+                    break;
                 }
-            });
+            }
         });
+
         $('#breadcrumbs').html(text.join(' > '));
 
-        targetVector = target;
-        var distance = 0;
-        if (target.geometry) {
-            targetVector = target.geometry.boundingSphere.center;
-            distance = target.geometry.boundingSphere.radius;
-        } else if (target.children) {
-            var box = new THREE.Box3().setFromObject(target);
-            var sphere = box.getBoundingSphere();
-            targetVector = sphere.center;
-            distance = sphere.radius;
+        var box = new THREE.Box3().setFromObject(lockOnTarget);
+        var sphere = box.getBoundingSphere();
+        targetVector = sphere.center;
+        var distance = sphere.radius * 0.7;
+        console.log(lockOnTarget);
+        if (lockOnTarget.type == 'Mesh' && lockOnTarget.geometry.type == 'SphereGeometry') {
+            distance = sphere.radius + 50;
         }
 
         TWEEN.removeAll();    // remove previous tweens if needed
+
+        tweening = true;
 
         new TWEEN.Tween({
             x: camera.position.x,
             y: camera.position.y,
             z: camera.position.z
         })
-                .to({ x: targetVector.x, z: targetVector.z + distance}, 500)
+                .to({ x: targetVector.x, y: 150 / (_breadcrumbs.length + 1), z: targetVector.z + distance}, 500)
                 .onUpdate(function() {
                     camera.position.x = this.x;
+                    camera.position.y = this.y;
                     camera.position.z = this.z;
+                    camera.lookAt(targetVector);
+                })
+                .onComplete(function() {
+                    camera.lookAt(targetVector);
+                    tweening = false;
                 })
                 .start();
-
-        var tween2 = new TWEEN.Tween(controls.target)
-                .to({ x: targetVector.x, y: targetVector.y, z: targetVector.z}, 1000)
-                .start();
+//
+//        var tween2 = new TWEEN.Tween(controls.target)
+//                .to({ x: targetVector.x, y: targetVector.y, z: targetVector.z}, 1000)
+//                .start();
     }
 
     function clearIdle() {
