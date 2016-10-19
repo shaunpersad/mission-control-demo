@@ -416,7 +416,7 @@
         var sphere = box.getBoundingSphere();
         targetVector = sphere.center;
         var distance = sphere.radius * 0.7;
-        console.log(lockOnTarget);
+
         if (lockOnTarget.type == 'Mesh' && lockOnTarget.geometry.type == 'SphereGeometry') {
             distance = sphere.radius + 50;
         }
