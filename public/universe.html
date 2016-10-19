@@ -2,11 +2,13 @@
 <head>
     <title>listen, there's a hell of a good universe next door; lets go.</title>
     <link rel="stylesheet" type="text/css" href="//fonts.googleapis.com/css?family=Aldrich" />
+    <link rel="stylesheet" type="text/css" href="css/font-awesome/css/font-awesome.min.css" />
     <style>
         html,body {
             margin: 0;
             padding: 0;
             font-family: Aldrich;
+            color: white;
         }
         #container,canvas {
             width: 100%;
@@ -23,11 +25,48 @@
             color: white;
             font-size: 25px;
         }
+        #facebook {
+            position: absolute;
+            top: 40px;
+            left: 40px;
+        }
+        #twitter {
+            position: absolute;
+            top: 40px;
+            right: 40px;
+        }
+        #instagram {
+            position: absolute;
+            bottom: 40px;
+            left: 40px;
+        }
+        #youtube {
+            position: absolute;
+            bottom: 40px;
+            right: 40px;
+        }
+        #metrics span {
+            padding-left: 10px;
+        }
     </style>
 </head>
 <body>
 <div id="breadcrumbs">
 
+</div>
+<div id="metrics">
+    <div id="facebook">
+        <i class="fa fa-facebook"></i><span></span>
+    </div>
+    <div id="twitter">
+        <i class="fa fa-twitter"></i><span></span>
+    </div>
+    <div id="instagram">
+        <i class="fa fa-instagram"></i><span></span>
+    </div>
+    <div id="youtube">
+        <i class="fa fa-youtube"></i><span></span>
+    </div>
 </div>
 <div id="container"></div>
 
@@ -38,11 +77,49 @@
 <script src="js/data.js"></script>
 <script src="/socket.io/socket.io.js"></script>
 <script>
+
     console.warn = function() {};
     // Returns a random number between min (inclusive) and max (exclusive)
     function getRandomArbitrary(min, max) {
         return Math.random() * (max - min) + min;
     }
+
+    function formatNumber(num, dont_round) {
+
+        var number = Number(num);
+
+        if (number < 1000) {
+            if (number % 1 != 0) {
+                number = number.toFixed(1);
+            }
+            if (!dont_round) {
+                number = Math.round(number);
+            }
+            return number;
+        }
+
+        if (number < 1000000) {
+
+            number = number / 1000;
+            if (number % 1 != 0) {
+                number = number.toFixed(1);
+            }
+            if (!dont_round) {
+                number = Math.round(number);
+            }
+            return number + 'K';
+        }
+        number = number / 1000000;
+        if (number % 1 != 0) {
+            number = number.toFixed(1);
+        }
+        if (!dont_round) {
+            number = Math.round(number);
+        }
+        return number + 'MM';
+
+    }
+
     var scene = new THREE.Scene();
     var camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1, 1000 );
 
@@ -65,7 +142,7 @@
     var universeSpeed = 0.0001;
     var hole = 100;
 
-    var starCount = 3000;
+    var starCount = 4000;
     var numStarFields = 5;
     var starCountPerField = Math.round(starCount / numStarFields);
 
@@ -136,7 +213,7 @@
             segmentEnd+= (segmentIncrement * segmentIndex);
 
             var material = new THREE.LineDashedMaterial({
-                color: 0xffffff,
+                color: 0xd3d3d3,
                 gapSize: 30,
                 dashSize: 30
             });
@@ -206,7 +283,7 @@
                 var z = Math.sin(angle) * radius;
 
                 var star = new THREE.Vector3(x, y, z);
-                star.velocity = getRandomArbitrary(-0.015, 0.015);
+                star.velocity = getRandomArbitrary(-0.01, 0.01);
                 starField.vertices.push(star);
             }
 
@@ -228,6 +305,7 @@
         camera.lookAt(universe.position);
 
         render();
+        navigateTo([]);
     }
 
     var render = function (time) {
@@ -411,6 +489,9 @@
         });
 
         $('#breadcrumbs').html(text.join(' > '));
+        Object.keys(data.metrics.audience).forEach(function(platform) {
+            $('#'+platform).find('span').text(formatNumber(data.metrics.audience[platform], true));
+        });
 
         var box = new THREE.Box3().setFromObject(lockOnTarget);
         var sphere = box.getBoundingSphere();
